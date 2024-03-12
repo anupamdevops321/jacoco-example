@@ -1,4 +1,4 @@
-name: Build
+name: Build and Test with JaCoCo and SonarQube Scan
 
 on:
   push:
@@ -6,31 +6,31 @@ on:
       - main
 
 jobs:
-  build:
-    name: Build
+  build_and_scan:
+    name: Build and Scan
     runs-on: ubuntu-latest
     permissions: read-all
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout repository
+        uses: actions/checkout@v2
         with:
           fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
+
       - name: Set up JDK 17
         uses: actions/setup-java@v1
         with:
           java-version: 17
-      - name: Cache SonarQube packages
+
+      - name: Cache SonarQube and Maven packages
         uses: actions/cache@v1
         with:
-          path: ~/.sonar/cache
-          key: ${{ runner.os }}-sonar
-          restore-keys: ${{ runner.os }}-sonar
-      - name: Cache Maven packages
-        uses: actions/cache@v1
-        with:
-          path: ~/.m2
-          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
-          restore-keys: ${{ runner.os }}-m2
-      - name: Build and analyze with JaCoCo
+          path: |
+            ~/.sonar/cache
+            ~/.m2
+          key: ${{ runner.os }}-sonar-m2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-sonar-m2
+
+      - name: Build and analyze with JaCoCo and SonarQube
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
@@ -38,3 +38,10 @@ jobs:
           mvn -B clean verify jacoco:report org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
             -Dsonar.projectKey=Jacoco \
             -Dsonar.projectName='Jacoco'
+
+      - name: Upload JaCoCo coverage report
+        if: always()
+        uses: actions/upload-artifact@v2
+        with:
+          name: jacoco-report
+          path: target/site/jacoco/index.html
